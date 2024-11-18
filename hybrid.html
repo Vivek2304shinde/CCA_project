@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hybrid Encryption</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    #controls {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      width: 400px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input[type="text"], input[type="number"], textarea {
+      width: calc(100% - 20px);
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    input[type="radio"] {
+      margin-right: 10px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    textarea {
+      height: 80px;
+      resize: none;
+    }
+  </style>
+</head>
+<body>
+
+<form id="controls">
+    <input type="radio" name="code" value="encode" checked> Encode
+    <input type="radio" name="code" value="decode"> Decode
+    <label for="input-text">Plaintext / Ciphertext</label>
+    <textarea id="input-text"></textarea>
+    <label for="output-text">Output</label>
+    <textarea id="output-text" readonly></textarea>
+    <label for="shift-input">Shift (Caesar Cipher)</label>
+    <input type="number" id="shift-input">
+    <label for="mod-input">Modulo</label>
+    <input type="number" id="mod-input" value="26">
+    <label for="alphabet-input">Alphabet (for Caesar)</label>
+    <input type="text" id="alphabet-input" value="ABCDEFGHIJKLMNOPQRSTUVWXYZ">
+    <label for="vigenere-key">Vigenère Cipher Key</label>
+    <input type="text" id="vigenere-key">
+    <button type="submit">Submit</button>
+</form>
+
+<script>
+  // Get the element from DOM
+  const form = document.getElementById("controls");
+  const selectEncodeOrDecode = document.getElementsByName("code");
+  const inputText = document.getElementById("input-text");
+  const outputText = document.getElementById("output-text");
+  const shiftKey = document.getElementById("shift-input");
+  const modulo = document.getElementById("mod-input");
+  const alphabet = document.getElementById("alphabet-input");
+  const vigenereKey = document.getElementById("vigenere-key");
+
+  // Function to apply Caesar cipher
+  function caesarCipher(text, shift, mod, charset) {
+      let result = '';
+      for (let i = 0; i < text.length; i++) {
+          let char = text[i];
+          let index = charset.indexOf(char.toUpperCase());
+          if (index !== -1) {
+              let newIndex = (index + shift) % mod;
+              if (newIndex < 0) newIndex += mod;
+              char = char === char.toUpperCase() ? charset[newIndex] : charset[newIndex].toLowerCase();
+          }
+          result += char;
+      }
+      return result;
+  }
+
+  // Function to generate the repeating key for Vigenère cipher
+  function generateKey(text, key) {
+      let keyRepeat = key.split("");
+      while (keyRepeat.length < text.length) {
+          keyRepeat.push(keyRepeat[keyRepeat.length % key.length]);
+      }
+      return keyRepeat.join("");
+  }
+
+  // Function to apply Vigenère cipher encryption
+  function vigenereCipher(text, key) {
+      let cipherText = '';
+      for (let i = 0; i < text.length; i++) {
+          let char = text[i];
+          if (char.match(/[a-zA-Z]/)) {
+              let textCharCode = char.toUpperCase().charCodeAt(0) - 65;
+              let keyCharCode = key[i].toUpperCase().charCodeAt(0) - 65;
+              let cipherCharCode = (textCharCode + keyCharCode) % 26;
+              cipherText += String.fromCharCode(cipherCharCode + 65);
+          } else {
+              cipherText += char;
+          }
+      }
+      return cipherText;
+  }
+
+  // Hybrid encryption: first apply Caesar, then Vigenère
+  function hybridEncrypt(plainText, caesarShift, vigenereKey, mod, charset) {
+      // Step 1: Apply Caesar cipher
+      let caesarEncrypted = caesarCipher(plainText, caesarShift, mod, charset);
+
+      // Step 2: Apply Vigenère cipher on the Caesar encrypted text
+      let vigenereKeyGenerated = generateKey(caesarEncrypted, vigenereKey);
+      let finalCipherText = vigenereCipher(caesarEncrypted, vigenereKeyGenerated);
+
+      return finalCipherText;
+  }
+
+  // Function to decrypt the Vigenère cipher
+  function vigenereDecrypt(cipherText, key) {
+      let origText = '';
+      for (let i = 0; i < cipherText.length; i++) {
+          let char = cipherText[i];
+          if (char.match(/[a-zA-Z]/)) {
+              let cipherCharCode = char.toUpperCase().charCodeAt(0) - 65;
+              let keyCharCode = key[i].toUpperCase().charCodeAt(0) - 65;
+              let origCharCode = (cipherCharCode - keyCharCode + 26) % 26;
+              origText += String.fromCharCode(origCharCode + 65);
+          } else {
+              origText += char;
+          }
+      }
+      return origText;
+  }
+
+  // Hybrid decryption: reverse Vigenère, then reverse Caesar
+  function hybridDecrypt(cipherText, caesarShift, vigenereKey, mod, charset) {
+      // Step 1: Reverse Vigenère cipher
+      let vigenereKeyGenerated = generateKey(cipherText, vigenereKey);
+      let decryptedVigenere = vigenereDecrypt(cipherText, vigenereKeyGenerated);
+
+      // Step 2: Reverse Caesar cipher
+      let finalPlainText = caesarCipher(decryptedVigenere, -caesarShift, mod, charset);
+
+      return finalPlainText;
+  }
+
+  // Event listeners for form submission
+  form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      
+      let inputTextValue = inputText.value;
+      let selectedOption = Array.from(selectEncodeOrDecode).find((option) => option.checked);
+      let shiftValue = parseInt(shiftKey.value);
+      let moduloValue = parseInt(modulo.value);
+      let alphabetValue = alphabet.value;
+      let vigenereKeyValue = vigenereKey.value;
+
+      // Ensure the Vigenère key is valid and non-empty
+      if (!vigenereKeyValue || vigenereKeyValue.length === 0) {
+          alert("Please enter a valid Vigenère key.");
+          return;
+      }
+
+      let output;
+      if (selectedOption.value === "encode") {
+          output = hybridEncrypt(inputTextValue, shiftValue, vigenereKeyValue, moduloValue, alphabetValue);
+      } else if (selectedOption.value === "decode") {
+          output = hybridDecrypt(inputTextValue, shiftValue, vigenereKeyValue, moduloValue, alphabetValue);
+      }
+      
+      outputText.value = output;
+  });
+
+</script>
+
+</body>
+</html>
